@@ -1,7 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
-  <Import Project="Dalamud.Plugin.Bootstrap.targets" />
-
   <PropertyGroup>
     <Version>0.0.0.1</Version>
     <Description>Arbitrary PNGs as portraits :D</Description>
@@ -22,4 +20,5 @@
     <DalamudLibPath Condition="$(DALAMUD_HOME) != ''">$(DALAMUD_HOME)/</DalamudLibPath>
   </PropertyGroup>
 
+  <Import Project="$(DalamudLibPath)/targets/Dalamud.Plugin.targets"/>
 </Project>
