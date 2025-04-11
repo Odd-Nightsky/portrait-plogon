@@ -1,0 +1,22 @@
+[
+    {
+        "Author": "oddnightsky",
+        "Name": "Portrait Plogon",
+        "InternalName": "portraitPlogon",
+        "AssemblyVersion": "0.1.2",
+        "Description": "Replaces (some) portrait elements with custom PNGs of your choice.\nAs of yet no syncing system exists",
+        "ApplicableVersion": "any",
+        "RepoUrl": "https://raw.githubusercontent.com/Odd-Nightsky/portrait-repo/refs/heads/main/repo.json",
+        "Tags": [
+          "portrait"
+        ],
+        "DalamudApiLevel": 12,
+        "LoadPriority": 0,
+        "IconUrl": "",
+        "Punchline": "Arbitrary PNGs as portraits :D",
+        "IsHide": "False",
+        "IsTestingExclusive": "False",
+        "DownloadLinkInstall": "https://github.com/Odd-Nightsky/portrait-plogon/releases/download/v0.1.2/portrait-plogon.zip",
+        "DownloadLinkUpdate": "https://github.com/Odd-Nightsky/portrait-plogon/releases/download/v0.1.2/portrait-plogon.zip"
+      }
+]

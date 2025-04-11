@@ -73,16 +73,18 @@ public class ConfigWindow : Window, IDisposable {
     public ConfigWindow(PortraitPlogon PortraitPlogon) : base("Portrait Plogon###PortraitPlogonCfg") {
         Flags = ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse | ImGuiWindowFlags.NoResize;
         portraitPlogon = PortraitPlogon;
-        //Size = new Vector2(232, 90);
-        //SizeCondition = ImGuiCond.Always;
         configuration = PortraitPlogon.configuration;
         folder_path = PortraitPlogon.folder_path;
         fileDialogManager = new FileDialogManager();
 
-        Size = new Vector2(350, 420);
+        Size = new Vector2(360, 420);
         SizeCondition = ImGuiCond.Always;
         var ver = Assembly.GetExecutingAssembly().GetName().Version!;
-        WindowName = $"Portrait Plogon ver-{ver.Major}.{ver.Minor}.{ver.Build}";
+# if DEBUG
+        WindowName = "Portrait Plogon DEBUG BUILD";
+# else
+        WindowName = $"Portrait Plogon ver: {ver.Major}.{ver.Minor}.{ver.Build}";
+# endif
     }
 
     public override void Draw() {
