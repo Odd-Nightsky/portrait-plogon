@@ -90,7 +90,7 @@ public unsafe class Helpers {
         return job_node->NodeText.ToString();
     }
 
-    public static uint GetWorldIDByName(string world_name) {
+    public uint GetWorldIDByName(string world_name) {
         return Data.GetExcelSheet<World>()!
             .Where(world => world.Name == world_name).SingleOrDefault().RowId;
     }

@@ -82,7 +82,7 @@ public class ConfigWindow : Window, IDisposable {
         Size = new Vector2(350, 420);
         SizeCondition = ImGuiCond.Always;
         var ver = Assembly.GetExecutingAssembly().GetName().Version!;
-        WindowName = $"Portrait Plogon ver-{ver.Major}.{ver.Minor}";
+        WindowName = $"Portrait Plogon ver-{ver.Major}.{ver.Minor}.{ver.Build}";
     }
 
     public override void Draw() {
