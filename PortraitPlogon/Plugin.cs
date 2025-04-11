@@ -15,6 +15,7 @@ using System.Linq;
 using Lumina.Excel;
 using Lumina.Excel.Sheets;
 using System;
+using System.Diagnostics;
 
 namespace PortraitPlogon;
 
@@ -35,7 +36,7 @@ public sealed unsafe class PortraitPlogon : IDalamudPlugin {
     private ConfigWindow ConfigWindow { get; init; }
     private const string ConfigCommandName = "/portcfg";
     private const string LocalPlayerModName = "own_portraits";
-    private int party_list_length = 0;
+    private int party_list_length = -1; // we want this to always change on first load
     public readonly string folder_path;
     private readonly List<PartyMember> party_list = [];
     //private readonly string api_key = "123PLACE_HOLDER";  // TODO: load this from plugin configuration
@@ -43,6 +44,7 @@ public sealed unsafe class PortraitPlogon : IDalamudPlugin {
     public string? own_world;
     public string? own_hash;
     private bool plugin_loaded = false;
+    private readonly Helpers helpers;
 
 
     public PortraitPlogon(IDalamudPluginInterface pluginInterface) {
@@ -55,8 +57,10 @@ public sealed unsafe class PortraitPlogon : IDalamudPlugin {
             HelpMessage = "Open PortraitPlogon configuration window"
         });
 
+        helpers = new Helpers(Data);
+
         // addon life cycle stuffs
-        IAddonLifecycle.AddonEventDelegate AgentBannerHandler = AgentBannerInterfacePostSetup;
+        IAddonLifecycle.AddonEventDelegate AgentBannerHandler = PartyPortraitInterfacePostSetup;
         IAddonLifecycle.AddonEventDelegate CharaCardPostSetupHandler = AdventurePlatePostSetup;
         IAddonLifecycle.AddonEventDelegate CharaCardPreDrawHandler = AdventurePlatePreDraw;
         AddonLifecycle.RegisterListener(AddonEvent.PostSetup, "BannerParty", AgentBannerHandler);
@@ -80,16 +84,14 @@ public sealed unsafe class PortraitPlogon : IDalamudPlugin {
         ToggleConfigUI();
     }
 
-    private static void Debug(string s) {
-        // literally just a shorthand for calling PluginLog.Debug because I'm too lazy to write the full thing I guess
-        PluginLog.Debug(s);
-    }
-
-    // called upon login and first load
+    /// <summary>
+    /// called upon login and first load
+    /// </summary>
     private void on_login() {
         plugin_loaded = true;
         own_name = clientState.LocalPlayer?.Name.ToString();
         own_world = clientState.LocalPlayer?.HomeWorld.Value.Name.ToString() ?? "Unkown";
+        party_list_length = -1; // forces a re-run of the party list checking
         // TODO: actually hash
         own_hash = own_name +
             clientState.LocalPlayer?.HomeWorld.RowId
@@ -118,7 +120,7 @@ public sealed unsafe class PortraitPlogon : IDalamudPlugin {
             on_login();
 
         if (party_list_length != PartyList.Length) {
-            Debug($"Party list changed.\n" +
+            PluginLog.Debug($"Party list changed.\n" +
                   $"old: {this.party_list_length}\n" +
                   $"new: {PartyList.Length}"
             );
@@ -127,11 +129,22 @@ public sealed unsafe class PortraitPlogon : IDalamudPlugin {
             for (var i = 0; i < PartyList.Count; i++) {
                 var member = PartyList[i];
                 if (member == null) {
-                    Debug("This code should by all accounts be unreachable. yet you reached it anyway.");
+                    PluginLog.Debug("This code should by all accounts be unreachable. yet you reached it anyway.");
                     continue;
                 }
                 
                 party_list.Add(new PartyMember(member));
+            }
+            if (party_list.Count == 0) {  // the player is solo
+                PluginLog.Debug("solo play :D");
+                if (clientState.LocalPlayer != null)
+                party_list.Add(new PartyMember(clientState.LocalPlayer));
+            }
+            foreach (var member in party_list) {
+                if (member.Name == own_name && helpers.CustomPortraitExists(configuration, own_hash ?? "Unknown", member.ClassJob.Value.Name.ToString())) {
+                    member.Image_path = configuration.Portraits[own_hash ?? "Unknown"][member.ClassJob.Value.Name.ToString()];
+                }
+                PluginLog.Debug(member.Name.ToString());
             }
         }
     }
@@ -144,7 +157,7 @@ public sealed unsafe class PortraitPlogon : IDalamudPlugin {
         // WHY DO I NEED TO RUN THIS EVERY FRAME AAAAA
         // /xldata -> Addon Inspector -> Depth Layer 5 -> CharaCard
         var CharaCard = (AtkUnitBase*)args.Addon;
-        var hash = GetHashFromPlate(CharaCard);
+        var hash = helpers.GetHashFromPlate(CharaCard);
 
         // setting image
         // node IDs: 1 > 19 > 2
@@ -158,107 +171,31 @@ public sealed unsafe class PortraitPlogon : IDalamudPlugin {
         }
     }
 
-    private string GetHashFromPlate(AtkUnitBase* CharaCard) {
-        // get the hash out of an adventure plate
-        // getting name
-        // node IDs: 1 > 4 > 5
-        var name_node_parent = (AtkComponentNode*)CharaCard->GetNodeById(4);
-        var name_node = (AtkTextNode*)name_node_parent->Component->UldManager.SearchNodeById(5);
-        var name = name_node->NodeText.ToString();
-
-        // getting world
-        // node IDs: 1 > 5 > 3
-        var world_node_parent = (AtkComponentNode*)CharaCard->GetNodeById(5);
-        var world_node = (AtkTextNode*)world_node_parent->Component->UldManager.SearchNodeById(3);
-        var world = world_node->NodeText.ToString();
-        // world = $"{world_name} [{DataCenter}]"
-        world = world.Split('[')[0].TrimEnd();
-        var world_id = GetWorldIDByName(world);
-        return name+world_id;
-    }
-
-    private void AgentBannerInterfacePostSetup(AddonEvent type, AddonArgs args) {
+    /// <summary>
+    /// Hooked to run before the party portrait interface is rendered
+    /// </summary>
+    private void PartyPortraitInterfacePostSetup(AddonEvent type, AddonArgs args) {
         var banner = (AtkUnitBase*)args.Addon;
-
-        // this is the player. we do not have to worry about shit here lol.
-        Debug($"Attempting portrait replacement of playerID 1");
-        var player_job = GetPlayerJobByPlayerID(1, banner);
-        // var hash = player_info.Name+player_info.World; // TODO: hash this
-
-        // paths should look like `tmp/portrait_plogon/[hash]/[job].tex`
-        if (!configuration.Portraits[own_hash ?? "Unknown"].GetValueOrDefault(player_job, "").IsNullOrEmpty()) {
-            var path = $"tmp/portrait_plogon/{own_hash}/{player_job}.tex";
-            GetImageNodeByPlayerID(1, banner)->LoadTexture(path);
+        for (uint i = 1; i <= 8; i++) {
+            var name = helpers.GetNameByPlayerID(i, banner);
+            var player_job = helpers.GetJobByPlayerID(i, banner);
+            var world_id = helpers.GetWorldIDByPlayerID(i, banner);
+            foreach (var member in party_list) {
+                if (member.Image_path.IsNullOrEmpty())
+                    continue;
+                if (player_job == member.ClassJob.Value.Name && // job check
+                    world_id == member.World.RowId           && // world check
+                    helpers.CompareNames(name, member.Name))    // name check
+                {
+                    PluginLog.Debug("Users match to the best of our guess");
+                    // paths should look like `tmp/portrait_plogon/[hash]/[job].tex`
+                    var hash = name + helpers.GetWorldIDByPlayerID(i, banner);
+                    var path = $"tmp/portrait_plogon/{hash}/{player_job}.tex";
+                    PluginLog.Debug(path);
+                    helpers.GetImageNodeByPlayerID(i, banner)->LoadTexture(path);
+                }
+            }
         }
-    }
-
-    private AtkImageNode* GetImageNodeByPlayerID(uint ID, AtkUnitBase* banner) {
-        // this code sucks lol
-        // use /xldata and the Addon Inspector to help you make sense of whats happening here
-        // Depth Layer 5 -> BannerParty
-        var nodeID = (ID*2)+2;  // player 1 = nodeID 4, player 2 = nodeID 6, etc
-        var player = (AtkComponentNode*)banner->GetNodeById(nodeID);
-        var portrait_node = (AtkComponentNode*)player->Component->UldManager.SearchNodeById(20);
-        return (AtkImageNode*)portrait_node->Component->UldManager.SearchNodeById(2);
-    }
-
-    private PlayerInfo GetPlayerInfoByPlayerID(uint ID, AtkUnitBase* banner) {
-        // this code sucks lol
-        // use /xldata and the Addon Inspector to help you make sense of whats happening here
-        // Depth Layer 5 -> BannerParty
-        var nodeID = (ID*2)+2;  // player 1 = nodeID 4, player 2 = nodeID 6, etc
-        var player = (AtkComponentNode*)banner->GetNodeById(nodeID);
-        
-        var name = GetPlayerNameByPlayerID(ID, banner);
-        var world_id = GetPlayerWorldIDByPlayerID(ID, banner);
-        var job = GetPlayerJobByPlayerID(ID, banner);
-
-        return new PlayerInfo(name, world_id, job);
-    }
-
-    private string GetPlayerNameByPlayerID(uint ID, AtkUnitBase* banner) {
-        // this code sucks lol
-        // use /xldata and the Addon Inspector to help you make sense of whats happening here
-        // Depth Layer 5 -> BannerParty
-        var nodeID = (ID*2)+2;  // player 1 = nodeID 4, player 2 = nodeID 6, etc
-        var player = (AtkComponentNode*)banner->GetNodeById(nodeID);
-        
-        // getting name
-        var first_name_node = (AtkTextNode*)player->Component->UldManager.SearchNodeById(6);
-        var first_name = first_name_node->NodeText.ToString();
-        var last_name_node = (AtkTextNode*)player->Component->UldManager.SearchNodeById(7);
-        var last_name = last_name_node->NodeText.ToString();
-        return $"{first_name} {last_name}";
-    }
-
-    private uint GetPlayerWorldIDByPlayerID(uint ID, AtkUnitBase* banner) {
-        // this code sucks lol
-        // use /xldata and the Addon Inspector to help you make sense of whats happening here
-        // Depth Layer 5 -> BannerParty
-        var nodeID = (ID*2)+2;  // player 1 = nodeID 4, player 2 = nodeID 6, etc
-        var player = (AtkComponentNode*)banner->GetNodeById(nodeID);
-
-        // getting world
-        var world_node = (AtkTextNode*)player->Component->UldManager.SearchNodeById(12);
-        var world_name = world_node->NodeText.ToString();
-        return GetWorldIDByName(world_name);
-    }
-
-    private string GetPlayerJobByPlayerID(uint ID, AtkUnitBase* banner) {
-        // this code sucks lol
-        // use /xldata and the Addon Inspector to help you make sense of whats happening here
-        // Depth Layer 5 -> BannerParty
-        var nodeID = (ID*2)+2;  // player 1 = nodeID 4, player 2 = nodeID 6, etc
-        var player = (AtkComponentNode*)banner->GetNodeById(nodeID);
-
-        // getting job
-        var job_node = (AtkTextNode*)player->Component->UldManager.SearchNodeById(9);
-        return job_node->NodeText.ToString();
-    }
-
-    private static uint GetWorldIDByName(string world_name) {
-        return Data.GetExcelSheet<World>()!
-            .Where(world => world.Name == world_name).SingleOrDefault().RowId;
     }
 
     public void ReconstructTemporaryMod() {
@@ -267,7 +204,7 @@ public sealed unsafe class PortraitPlogon : IDalamudPlugin {
         // portrait has type "KeyValuePair<string, string>"
         foreach (var portrait in configuration.Portraits[own_hash ?? "Unknown"]) {
             mod_dict.Add($"tmp/portrait_plogon/{own_hash}/{portrait.Key}.tex", portrait.Value+".tex");
-            PortraitPlogon.PluginLog.Debug($"tmp/portrait_plogon/{own_hash}/{portrait.Key}.tex");
+            // PortraitPlogon.PluginLog.PluginLog.Debug($"tmp/portrait_plogon/{own_hash}/{portrait.Key}.tex");
         }
         // PenumbraIPC.RemoveTemporaryModAll(LocalPlayerModName);  // TODO:is this needed?
         PenumbraIPC.AddTemporaryModAll(LocalPlayerModName, mod_dict);

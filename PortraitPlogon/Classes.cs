@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using System.Collections.Generic;
 using Lumina.Excel;
 using Lumina.Excel.Sheets;
+using Dalamud.Game.ClientState.Objects.SubKinds;
 
 namespace PortraitPlogon;
 
@@ -14,6 +15,15 @@ public class PartyMember {
     public PartyMember(IPartyMember member) {
         Name = member.Name.TextValue;
         World = member.World;
+        ClassJob = member.ClassJob;
+        ClassJobId = member.ClassJob.RowId;
+        Hash = $"{Name}{World.RowId}";
+        // always hash with english world name. its what the server expects
+        // TODO: actually hash this
+    }
+    public PartyMember(IPlayerCharacter member) {
+        Name = member.Name.TextValue;
+        World = member.HomeWorld;
         ClassJob = member.ClassJob;
         ClassJobId = member.ClassJob.RowId;
         Hash = $"{Name}{World.RowId}";

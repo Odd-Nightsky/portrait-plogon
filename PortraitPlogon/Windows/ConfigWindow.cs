@@ -11,6 +11,7 @@ using System.IO;
 using Dalamud.Plugin.Services;
 using Dalamud.IoC;
 using System.Diagnostics;
+using System.Reflection;
 
 namespace PortraitPlogon.Windows;
 
@@ -80,6 +81,8 @@ public class ConfigWindow : Window, IDisposable {
 
         Size = new Vector2(350, 420);
         SizeCondition = ImGuiCond.Always;
+        var ver = Assembly.GetExecutingAssembly().GetName().Version!;
+        WindowName = $"Portrait Plogon ver-{ver.Major}.{ver.Minor}";
     }
 
     public override void Draw() {
@@ -130,6 +133,7 @@ public class ConfigWindow : Window, IDisposable {
             if (configuration.Portraits[portraitPlogon.own_hash ?? "Unknown"].ContainsKey(selected.ToLower())) {
                 ImGui.SameLine();
                 if (ImGui.Button("Unset Image")) {
+                    // unset image
                     configuration.Portraits[portraitPlogon.own_hash ?? "Unknown"].Remove(selected.ToLower());
                     portraitPlogon.ReconstructTemporaryMod();
                     configuration.Save();

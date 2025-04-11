@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Dalamud.NET.Sdk/12.0.2">
   <PropertyGroup>
-    <Version>0.0.0.1</Version>
+    <Version>0.1</Version>
     <Description>Arbitrary PNGs as portraits :D</Description>
-    <PackageProjectUrl>https://no-site.example</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/Odd-Nightsky/portrait-plogon</PackageProjectUrl>
     <PackageLicenseExpression>AGPL-3.0-or-later</PackageLicenseExpression>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="System.Drawing.Common" Version="8.0.8" />
-    <PackageReference Include="Penumbra.Api" Version="5.2.0" />
+    <PackageReference Include="System.Drawing.Common" Version="9.0" />
+    <PackageReference Include="Penumbra.Api" Version="5.6.0" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -19,6 +19,4 @@
     <DalamudLibPath Condition="$([MSBuild]::IsOSPlatform('OSX'))">$(HOME)/Library/Application Support/XIV on Mac/dalamud/Hooks/dev/</DalamudLibPath>
     <DalamudLibPath Condition="$(DALAMUD_HOME) != ''">$(DALAMUD_HOME)/</DalamudLibPath>
   </PropertyGroup>
-
-  <Import Project="$(DalamudLibPath)/targets/Dalamud.Plugin.targets"/>
 </Project>

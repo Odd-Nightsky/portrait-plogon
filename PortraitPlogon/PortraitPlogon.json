@@ -1,8 +1,9 @@
 {
-  "Author": "Oddnightsky",
-  "Name": "Portrait-Plogon",
-  "Punchline": "Welcome to the rice fields mother fucker",
-  "Description": "An attempt at replacing portraits with static images",
+  "Author": "oddnightsky",
+  "Name": "Portrait Plogon",
+  "InternalName": "portraitPlogon",
+  "Punchline": "Arbitrary PNGs as portraits :D",
+  "Description": "Replaces (some) portrait elements with custom PNGs of your choice.\nAs of yet no syncing system exists",
   "ApplicableVersion": "any",
   "Tags": [
     "Portraits"
