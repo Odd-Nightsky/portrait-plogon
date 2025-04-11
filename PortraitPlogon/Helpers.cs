@@ -92,7 +92,7 @@ public unsafe class Helpers {
 
     public uint GetWorldIDByName(string world_name) {
         return Data.GetExcelSheet<World>()!
-            .Where(world => world.Name == world_name).SingleOrDefault().RowId;
+            .Where(world => world.Name == world_name).FirstOrDefault().RowId;
     }
 
     public string GetHashFromPlate(AtkUnitBase* CharaCard) {
