@@ -7,6 +7,6 @@ It hardly works. I'm very lazy and hardly work on this. Do not expect it to be u
 You've installed plugins before you know how this works
 
 ```
-https://raw.githubusercontent.com/Odd-Nightsky/portrait-plogon/refs/heads/main/repo.json
+https://raw.githubusercontent.com/Odd-Nightsky/portrait-plogon/main/repo.json
 ```
     
