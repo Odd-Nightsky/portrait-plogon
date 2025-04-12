@@ -187,10 +187,11 @@ public sealed unsafe class PortraitPlogon : IDalamudPlugin {
                     world_id == member.World.RowId           && // world check
                     helpers.CompareNames(name, member.Name))    // name check
                 {
-                    PluginLog.Debug("Users match to the best of our guess");
+                    PluginLog.Debug($"Users match. {name} & {member.Name}");
                     // paths should look like `tmp/portrait_plogon/[hash]/[job].tex`
                     var hash = name + helpers.GetWorldIDByPlayerID(i, banner);
                     var path = $"tmp/portrait_plogon/{hash}/{player_job}.tex";
+                    PluginLog.Debug($"Attempting portrait overwrite with path: {path}");
                     PluginLog.Debug(path);
                     helpers.GetImageNodeByPlayerID(i, banner)->LoadTexture(path);
                 }

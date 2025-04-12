@@ -28,17 +28,20 @@ public class ConfigWindow : Window, IDisposable {
     private string selected = "";
     private readonly List<string> jobs = [
         "Adventure Plate",
+        // tanks
         "Gladiator",
         "Paladin",
         "Marauder",
         "Warrior",
         "Dark Knight",
         "Gunbreaker",
+        // healers
         "Conjurer",
         "White Mage",
         "Scholar",
         "Astrologian",
         "Sage",
+        // melee
         "Pugilist",
         "Lancer",
         "Dragoon",
@@ -47,16 +50,19 @@ public class ConfigWindow : Window, IDisposable {
         "Samurai",
         "Reaper",
         "Viper",
+        // phys ranged
         "Archer",
         "Bard",
         "Machinist",
         "Dancer",
+        // caster
         "Thaumaturge",
         "Arcanist",
         "Summoner",
         "Red Mage",
         "Pictomancer",
         "Blue Mage",
+        // crafter
         "Carpenter",
         "Blacksmith",
         "Armorer",
@@ -65,6 +71,7 @@ public class ConfigWindow : Window, IDisposable {
         "Weaver",
         "Alchemist",
         "Culinarian",
+        // gatherer
         "Miner",
         "Botanist",
         "Fisher"
