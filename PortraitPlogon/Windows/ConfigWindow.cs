@@ -3,30 +3,24 @@ using System.Collections.Generic;
 using System.Numerics;
 using Dalamud.Interface.Windowing;
 using Dalamud.Interface.ImGuiFileDialog;
-using Dalamud.Configuration;
 using ImGuiNET;
 using Dalamud.Utility;
-using System.Drawing;
 using System.IO;
-using Dalamud.Plugin.Services;
-using Dalamud.IoC;
-using System.Diagnostics;
-using System.Reflection;
 
 namespace PortraitPlogon.Windows;
 
 
 public class ConfigWindow : Window, IDisposable {
-    [PluginService] internal static IClientState clientState { get; private set; } = null!;
+    //[PluginService] internal static IClientState ClientState { get; private set; } = null!;
     
-    private readonly Configuration configuration;
-    private readonly string folder_path;
-    private readonly FileDialogManager fileDialogManager;
-    private string error_message = "";
-    private static Vector4 ErrorColour = new(255, 0, 0, 255);  // Red, Green, Blue, Alpha
-    private readonly PortraitPlogon portraitPlogon;
-    private string selected = "";
-    private readonly List<string> jobs = [
+    private readonly Configuration _configuration;
+    private readonly string _folderPath;
+    private readonly FileDialogManager _fileDialogManager;
+    private string _errorMessage = "";
+    private static readonly Vector4 ErrorColour = new(255, 0, 0, 255);  // Red, Green, Blue, Alpha
+    private readonly PortraitPlogon _portraitPlogon;
+    private string _selected = "";
+    private readonly List<string> _jobs = [
         "Adventure Plate",
         // tanks
         "Gladiator",
@@ -77,39 +71,39 @@ public class ConfigWindow : Window, IDisposable {
         "Fisher"
     ];
 
-    public ConfigWindow(PortraitPlogon PortraitPlogon) : base("Portrait Plogon###PortraitPlogonCfg") {
+    public ConfigWindow(PortraitPlogon portraitPlogon) : base("Portrait Plogon###PortraitPlogonCfg") {
         Flags = ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse | ImGuiWindowFlags.NoResize;
-        portraitPlogon = PortraitPlogon;
-        configuration = PortraitPlogon.configuration;
-        folder_path = PortraitPlogon.folder_path;
-        fileDialogManager = new FileDialogManager();
+        _portraitPlogon = portraitPlogon;
+        _configuration = portraitPlogon.Configuration;
+        _folderPath = portraitPlogon.FolderPath;
+        _fileDialogManager = new FileDialogManager();
 
         Size = new Vector2(360, 420);
         SizeCondition = ImGuiCond.Always;
-        var ver = Assembly.GetExecutingAssembly().GetName().Version!;
 # if DEBUG
         WindowName = "Portrait Plogon DEBUG BUILD";
 # else
+        var ver = Assembly.GetExecutingAssembly().GetName().Version!;
         WindowName = $"Portrait Plogon ver: {ver.Major}.{ver.Minor}.{ver.Build}";
 # endif
     }
 
     public override void Draw() {
-        if (!PenumbraIPC.CheckAvailablity()) {
+        if (!PenumbraIPC.CheckAvailability()) {
             ImGui.TextColored(ErrorColour, "Penumbra not available or wrong version.");
             return;
         }
 
-        fileDialogManager.Draw();
+        _fileDialogManager.Draw();
         ImGui.TextWrapped("The images selected must be 256x420.");
         
         // (mostly) copied from Dear imgui_demo (specifically the "Simple Layout" demo)
         // https://github.com/ocornut/imgui/blob/master/imgui_demo.cpp#L8815
         // Left pane
         ImGui.BeginChild("left pane", new Vector2(150, 0), true, ImGuiWindowFlags.None);
-            foreach (var job in jobs) {
-                if (ImGui.Selectable(job, selected == job))
-                    selected = job;
+            foreach (var job in _jobs) {
+                if (ImGui.Selectable(job, _selected == job))
+                    _selected = job;
             }
         ImGui.EndChild();
         ImGui.SameLine();
@@ -122,73 +116,73 @@ public class ConfigWindow : Window, IDisposable {
             /*border*/ false,
             /*flags*/  ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse
         );
-            if (selected.IsNullOrEmpty()){
+            if (_selected.IsNullOrEmpty()){
                 return;
             }
-            ImGui.Text(selected);
-            if (!error_message.IsNullOrEmpty()){
-                ImGui.TextColored(ErrorColour, error_message);
+            ImGui.Text(_selected);
+            if (!_errorMessage.IsNullOrEmpty()){
+                ImGui.TextColored(ErrorColour, _errorMessage);
             }
             ImGui.Separator();
             if (ImGui.Button("Select Image")) {
-                fileDialogManager.OpenFileDialog("Select an image.", ".png", (success, file) => {
+                _fileDialogManager.OpenFileDialog("Select an image.", ".png", (success, file) => {
                     if (success) {
-                        handle_file(file, selected.ToLower());
+                        handle_file(file, _selected.ToLower());
                     }
                 });
             }
 
             // is an image currently set?
-            if (configuration.Portraits[portraitPlogon.own_hash ?? "Unknown"].ContainsKey(selected.ToLower())) {
+            if (_configuration.Portraits[_portraitPlogon.OwnHash ?? "Unknown"].ContainsKey(_selected.ToLower())) {
                 ImGui.SameLine();
                 if (ImGui.Button("Unset Image")) {
                     // unset image
-                    configuration.Portraits[portraitPlogon.own_hash ?? "Unknown"].Remove(selected.ToLower());
-                    portraitPlogon.ReconstructTemporaryMod();
-                    configuration.Save();
+                    _configuration.Portraits[_portraitPlogon.OwnHash ?? "Unknown"].Remove(_selected.ToLower());
+                    _portraitPlogon.ReconstructTemporaryMod();
+                    _configuration.Save();
                     return;
-                } else {
-                    // load the image
-                    var path = configuration.Portraits[portraitPlogon.own_hash ?? "Unknown"][selected.ToLower()]+".png";
-                    var image = PortraitPlogon.TextureProvider.GetFromFile(path).GetWrapOrDefault();
-                    if (image != null)
-                        // show the image
-                        ImGui.Image(image.ImGuiHandle, new Vector2(171, 279));
-                    else
-                        ImGui.TextColored(ErrorColour, "Failure to load image.");
                 }
+                // load the image
+                var path = _configuration.Portraits[_portraitPlogon.OwnHash ?? "Unknown"][_selected.ToLower()]+".png";
+                var image = PortraitPlogon.TextureProvider.GetFromFile(path).GetWrapOrDefault();
+                if (image != null)
+                    // show the image
+                    ImGui.Image(image.ImGuiHandle, new Vector2(185, 304));
+                else
+                    ImGui.TextColored(ErrorColour, "Failure to load image.");
             }
         ImGui.EndChild();
     }
 
-    public void handle_file(string file, string job) {
+    private void handle_file(string file, string job) {
         // configuration.Portraits["paladin"] = file;
         var image = System.Drawing.Image.FromFile(file);
         if (image.Width != 256 || image.Height != 420) {
-            error_message = "Image must be 256x420!";
-            return;
-        } else if (new System.IO.FileInfo(file).Length > 500 * 1000) {
-            error_message = "Max file size is 500KB!";
+            _errorMessage = "Image must be 256x420!";
             return;
         }
-        error_message = "";
+        if (new FileInfo(file).Length > 500 * 1000) {
+            _errorMessage = "Max file size is 500KB!";
+            return;
+        }
+        _errorMessage = "";
 
         // copy file to our folder
-        Directory.CreateDirectory($"{folder_path}\\{portraitPlogon.own_world}\\{portraitPlogon.own_name}\\{job}");
-        var path = $"{folder_path}\\{portraitPlogon.own_world}\\{portraitPlogon.own_name}\\{job}";
+        Directory.CreateDirectory($@"{_folderPath}\{_portraitPlogon.OwnWorld}\{_portraitPlogon.OwnName}\{job}");
+        var path = $@"{_folderPath}\{_portraitPlogon.OwnWorld}\{_portraitPlogon.OwnName}\{job}";
         File.Copy(file, path+".png", true);
-        configuration.Portraits[portraitPlogon.own_hash ?? "Unknown"][job] = path;
-        configuration.Save();
+        _configuration.Portraits[_portraitPlogon.OwnHash ?? "Unknown"][job] = path;
+        _configuration.Save();
 
         // convert to tex
         // we can assume penumbra is available because it'd have already been checked for at the start of Draw();
         PenumbraIPC.ConvertPngToTexAsIs(path+".png", path+".tex");
-        portraitPlogon.ReconstructTemporaryMod();
+        _portraitPlogon.ReconstructTemporaryMod();
     }
 
     public void Dispose() {
         // no clue what this is or if my code *needs* it
-        // vscode will however mark this if its not here so /shrug
+        // vscode will however mark this if it's not here so /shrug
         GC.SuppressFinalize(this);
     }
 }

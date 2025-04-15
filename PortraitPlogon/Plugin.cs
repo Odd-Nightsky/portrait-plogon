@@ -5,81 +5,79 @@ using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using System.Collections.Generic;
-using System.Text.Json;
+using System.Diagnostics.CodeAnalysis;
 using PortraitPlogon.Windows;
 using Dalamud.Game.Command;
 using Dalamud.Interface.Windowing;
 using Dalamud.Utility;
-using Dalamud.Game;
-using System.Linq;
-using Lumina.Excel;
-using Lumina.Excel.Sheets;
-using System;
-using System.Diagnostics;
 
 namespace PortraitPlogon;
 
 
+[SuppressMessage("ReSharper", "ClassNeverInstantiated.Global")]
 public sealed unsafe class PortraitPlogon : IDalamudPlugin {
+    // ReSharper disable MemberCanBePrivate.Global
     [PluginService] internal static IDalamudPluginInterface PluginInterface { get; private set; } = null!;
     [PluginService] internal static IAddonLifecycle AddonLifecycle { get; private set; } = null!;
     [PluginService] internal static IPluginLog PluginLog { get; private set; } = null!;
     [PluginService] internal static IFramework Framework { get; private set; } = null!;
     [PluginService] internal static IPartyList PartyList { get; private set; } = null!;
     [PluginService] internal static ICommandManager CommandManager { get; private set; } = null!;
-    [PluginService] internal static IClientState clientState { get; private set; } = null!;
+    [PluginService] internal static IClientState ClientState { get; private set; } = null!;
     [PluginService] internal static ITextureProvider TextureProvider { get; private set; } = null!;
     [PluginService] internal static IDataManager Data { get; private set; } = null!;
+    // ReSharper restore MemberCanBePrivate.Global
     
-    public Configuration configuration { get; init; }
-    public readonly WindowSystem WindowSystem = new("PortraitPlogon");
+    public Configuration Configuration { get; init; }
+    private readonly WindowSystem _windowSystem = new("PortraitPlogon");
     private ConfigWindow ConfigWindow { get; init; }
     private const string ConfigCommandName = "/portcfg";
     private const string LocalPlayerModName = "own_portraits";
-    private int party_list_length = -1; // we want this to always change on first load
-    public readonly string folder_path;
-    private readonly List<PartyMember> party_list = [];
+    private int _partyListLength = -1;  // 0-8 during normal gameplay.
+                                        // setting to -1 forces a re-check on first run of on_framework_update
+    public readonly string FolderPath;
+    private readonly List<PartyMember> _partyList = [];
     //private readonly string api_key = "123PLACE_HOLDER";  // TODO: load this from plugin configuration
-    public string? own_name;
-    public string? own_world;
-    public string? own_hash;
-    private bool plugin_loaded = false;
-    private readonly Helpers helpers;
-
-
+    public string? OwnName;
+    public string? OwnWorld;
+    public string? OwnHash;
+    private bool _pluginLoaded;
+    private readonly Helpers _helpers;
+    
+    [SuppressMessage("ReSharper", "UnusedParameter.Local")]
     public PortraitPlogon(IDalamudPluginInterface pluginInterface) {
         // TODO: clean this up
-        folder_path = PluginInterface.GetPluginConfigDirectory();
-        configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
+        FolderPath = PluginInterface.GetPluginConfigDirectory();
+        Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
         ConfigWindow = new ConfigWindow(this);
-        WindowSystem.AddWindow(ConfigWindow);
+        _windowSystem.AddWindow(ConfigWindow);
         CommandManager.AddHandler(ConfigCommandName, new CommandInfo(ToggleConfigCommand) {
             HelpMessage = "Open PortraitPlogon configuration window"
         });
 
-        helpers = new Helpers(Data);
+        _helpers = new Helpers(Data);
 
         // addon life cycle stuffs
-        IAddonLifecycle.AddonEventDelegate AgentBannerHandler = PartyPortraitInterfacePostSetup;
-        IAddonLifecycle.AddonEventDelegate CharaCardPostSetupHandler = AdventurePlatePostSetup;
-        IAddonLifecycle.AddonEventDelegate CharaCardPreDrawHandler = AdventurePlatePreDraw;
-        AddonLifecycle.RegisterListener(AddonEvent.PostSetup, "BannerParty", AgentBannerHandler);
-        //AddonLifecycle.RegisterListener(AddonEvent.PostSetup, "CharaCard", CharaCardPostSetupHandler);
-        AddonLifecycle.RegisterListener(AddonEvent.PreDraw, "CharaCard", CharaCardPreDrawHandler);
+        IAddonLifecycle.AddonEventDelegate agentBannerHandler = PartyPortraitInterfacePostSetup;
+        IAddonLifecycle.AddonEventDelegate charaCardPostSetupHandler = AdventurePlatePostSetup;
+        IAddonLifecycle.AddonEventDelegate charaCardPreDrawHandler = AdventurePlatePreDraw;
+        AddonLifecycle.RegisterListener(AddonEvent.PostSetup, "BannerParty", agentBannerHandler);
+        AddonLifecycle.RegisterListener(AddonEvent.PostSetup, "CharaCard", charaCardPostSetupHandler);
+        AddonLifecycle.RegisterListener(AddonEvent.PreDraw, "CharaCard", charaCardPreDrawHandler);
 
         // events
         Framework.Update                       += on_framework_update;
-        clientState.Login                      += on_login;
-        clientState.Logout                     += on_logout;
+        ClientState.Login                      += on_login;
+        ClientState.Logout                     += on_logout;
         PluginInterface.UiBuilder.Draw         += DrawUI;
         PluginInterface.UiBuilder.OpenConfigUi += ToggleConfigUI;
     }
 
-    private void DrawUI() => WindowSystem.Draw();
-    public void ToggleConfigUI() => ConfigWindow.Toggle();
+    private void DrawUI() => _windowSystem.Draw();
+    private void ToggleConfigUI() => ConfigWindow.Toggle();
 
     private void ToggleConfigCommand(string command, string args) {
-        if (!clientState.IsLoggedIn)
+        if (!ClientState.IsLoggedIn)
             return;
         ToggleConfigUI();
     }
@@ -88,64 +86,56 @@ public sealed unsafe class PortraitPlogon : IDalamudPlugin {
     /// called upon login and first load
     /// </summary>
     private void on_login() {
-        plugin_loaded = true;
-        own_name = clientState.LocalPlayer?.Name.ToString();
-        own_world = clientState.LocalPlayer?.HomeWorld.Value.Name.ToString() ?? "Unkown";
-        party_list_length = -1; // forces a re-run of the party list checking
+        _pluginLoaded = true;
+        OwnName = ClientState.LocalPlayer?.Name.ToString();
+        OwnWorld = ClientState.LocalPlayer?.HomeWorld.Value.Name.ToString() ?? "Unknown";
+        _partyListLength = -1; // forces a re-run of the party list checking
         // TODO: actually hash
-        own_hash = own_name +
-            clientState.LocalPlayer?.HomeWorld.RowId
-            ?? "Place HolderUnknown";
+        OwnHash = OwnName + ClientState.LocalPlayer?.HomeWorld.RowId ?? "Place HolderUnknown";
 
         // if this character doesn't exist in the configuration dictionary yet
-        if (!configuration.Portraits.ContainsKey(own_hash))
-            configuration.Portraits[own_hash] = [];
+        if (!Configuration.Portraits.ContainsKey(OwnHash))
+            Configuration.Portraits[OwnHash] = [];
         
         // Load the current setup into penumbra
-        if (PenumbraIPC.CheckAvailablity())
+        if (PenumbraIPC.CheckAvailability())
             ReconstructTemporaryMod();
             // TODO: add an error message for if this fails & a way to re-load in the future if it becomes available
     }
 
     private void on_logout(int type, int code) {
-        own_name = null;
-        own_world = null;
-        own_hash = null;
+        OwnName = null;
+        OwnWorld = null;
+        OwnHash = null;
     }
 
     private void on_framework_update(IFramework framework) {
         // we want this to run to populate certain values. but it needs to load only once
         // it'd run either on login or when the plugin first loads up
-        if (!plugin_loaded && clientState.IsLoggedIn)
+        if (!_pluginLoaded && ClientState.IsLoggedIn)
             on_login();
 
-        if (party_list_length != PartyList.Length) {
-            PluginLog.Debug($"Party list changed.\n" +
-                  $"old: {this.party_list_length}\n" +
-                  $"new: {PartyList.Length}"
-            );
-            party_list_length = PartyList.Length;
-            party_list.Clear();
-            for (var i = 0; i < PartyList.Count; i++) {
-                var member = PartyList[i];
-                if (member == null) {
-                    PluginLog.Debug("This code should by all accounts be unreachable. yet you reached it anyway.");
-                    continue;
-                }
-                
-                party_list.Add(new PartyMember(member));
+        if (_partyListLength == PartyList.Length)
+            return;
+        PluginLog.Debug($"Party list changed.\n" +
+                        $"old: {this._partyListLength}\n" +
+                        $"new: {PartyList.Length}"
+        );
+        _partyListLength = PartyList.Length;
+        _partyList.Clear();
+        foreach (var member in PartyList) {
+            _partyList.Add(new PartyMember(member));
+        }
+        if (_partyList.Count == 0) {  // the player is solo
+            PluginLog.Debug("solo play :D");
+            if (ClientState.LocalPlayer != null)
+                _partyList.Add(new PartyMember(ClientState.LocalPlayer));
+        }
+        foreach (var member in _partyList) {
+            if (member.Name == OwnName && _helpers.CustomPortraitExists(Configuration, OwnHash ?? "Unknown", member.ClassJob.Value.Name.ToString())) {
+                member.ImagePath = Configuration.Portraits[OwnHash ?? "Unknown"][member.ClassJob.Value.Name.ToString()];
             }
-            if (party_list.Count == 0) {  // the player is solo
-                PluginLog.Debug("solo play :D");
-                if (clientState.LocalPlayer != null)
-                party_list.Add(new PartyMember(clientState.LocalPlayer));
-            }
-            foreach (var member in party_list) {
-                if (member.Name == own_name && helpers.CustomPortraitExists(configuration, own_hash ?? "Unknown", member.ClassJob.Value.Name.ToString())) {
-                    member.Image_path = configuration.Portraits[own_hash ?? "Unknown"][member.ClassJob.Value.Name.ToString()];
-                }
-                PluginLog.Debug(member.Name.ToString());
-            }
+            PluginLog.Debug(member.Name);
         }
     }
 
@@ -156,19 +146,19 @@ public sealed unsafe class PortraitPlogon : IDalamudPlugin {
     private void AdventurePlatePreDraw(AddonEvent type, AddonArgs args) {
         // WHY DO I NEED TO RUN THIS EVERY FRAME AAAAA
         // /xldata -> Addon Inspector -> Depth Layer 5 -> CharaCard
-        var CharaCard = (AtkUnitBase*)args.Addon;
-        var hash = helpers.GetHashFromPlate(CharaCard);
+        var charaCard = (AtkUnitBase*)args.Addon;
+        var hash = _helpers.GetHashFromPlate(charaCard);
 
         // setting image
         // node IDs: 1 > 19 > 2
         // are we looking at our own plate?
-        if (hash == own_hash) {
-            if (configuration.Portraits[own_hash ?? "Unknown"].GetValueOrDefault("adventure plate", "").IsNullOrEmpty())
-                return;
-            var portrait_node = (AtkComponentNode*)CharaCard->GetNodeById(19);
-            var portrait = (AtkImageNode*)portrait_node->Component->UldManager.SearchNodeById(2);
-            portrait->LoadTexture($"tmp/portrait_plogon/{own_hash}/adventure plate.tex");
-        }
+        if (hash != OwnHash)
+            return;
+        if (Configuration.Portraits[OwnHash ?? "Unknown"].GetValueOrDefault("adventure plate", "").IsNullOrEmpty())
+            return;
+        var portraitNode = (AtkComponentNode*)charaCard->GetNodeById(19);
+        var portrait = (AtkImageNode*)portraitNode->Component->UldManager.SearchNodeById(2);
+        portrait->LoadTexture($"tmp/portrait_plogon/{OwnHash}/adventure plate.tex");
     }
 
     /// <summary>
@@ -177,24 +167,24 @@ public sealed unsafe class PortraitPlogon : IDalamudPlugin {
     private void PartyPortraitInterfacePostSetup(AddonEvent type, AddonArgs args) {
         var banner = (AtkUnitBase*)args.Addon;
         for (uint i = 1; i <= 8; i++) {
-            var name = helpers.GetNameByPlayerID(i, banner);
-            var player_job = helpers.GetJobByPlayerID(i, banner);
-            var world_id = helpers.GetWorldIDByPlayerID(i, banner);
-            foreach (var member in party_list) {
-                if (member.Image_path.IsNullOrEmpty())
+            var name = _helpers.GetNameByPlayerID(i, banner);
+            var playerJob = _helpers.GetJobByPlayerID(i, banner);
+            var worldId = _helpers.GetWorldIDByPlayerID(i, banner);
+            foreach (var member in _partyList) {
+                if (member.ImagePath.IsNullOrEmpty())
                     continue;
-                if (player_job == member.ClassJob.Value.Name && // job check
-                    world_id == member.World.RowId           && // world check
-                    helpers.CompareNames(name, member.Name)     // name check
+                if (playerJob == member.ClassJob.Value.Name && // job check
+                    worldId == member.World.RowId           && // world check
+                    _helpers.CompareNames(name, member.Name)     // name check
                 ) {
                     PluginLog.Debug($"Users match: {name} & {member.Name}\n"+
-                                    $"class: {player_job} & {member.ClassJob.Value.Name}"
+                                    $"class: {playerJob} & {member.ClassJob.Value.Name}"
                     );
                     // paths should look like `tmp/portrait_plogon/[hash]/[job].tex`
-                    var hash = name + helpers.GetWorldIDByPlayerID(i, banner);
-                    var path = $"tmp/portrait_plogon/{hash}/{player_job}.tex";
+                    var hash = name + _helpers.GetWorldIDByPlayerID(i, banner);
+                    var path = $"tmp/portrait_plogon/{hash}/{playerJob}.tex";
                     PluginLog.Debug($"Attempting portrait overwrite with path: {path}");
-                    helpers.GetImageNodeByPlayerID(i, banner)->LoadTexture(path);
+                    _helpers.GetImageNodeByPlayerID(i, banner)->LoadTexture(path);
                 }
             }
         }
@@ -202,14 +192,14 @@ public sealed unsafe class PortraitPlogon : IDalamudPlugin {
 
     public void ReconstructTemporaryMod() {
         // reconstruct temporary mod & ask penumbra to load it
-        var mod_dict = new Dictionary<string, string>();
+        var modDict = new Dictionary<string, string>();
         // portrait has type "KeyValuePair<string, string>"
-        foreach (var portrait in configuration.Portraits[own_hash ?? "Unknown"]) {
-            mod_dict.Add($"tmp/portrait_plogon/{own_hash}/{portrait.Key}.tex", portrait.Value+".tex");
+        foreach (var portrait in Configuration.Portraits[OwnHash ?? "Unknown"]) {
+            modDict.Add($"tmp/portrait_plogon/{OwnHash}/{portrait.Key}.tex", portrait.Value+".tex");
             // PortraitPlogon.PluginLog.PluginLog.Debug($"tmp/portrait_plogon/{own_hash}/{portrait.Key}.tex");
         }
         // PenumbraIPC.RemoveTemporaryModAll(LocalPlayerModName);  // TODO:is this needed?
-        PenumbraIPC.AddTemporaryModAll(LocalPlayerModName, mod_dict);
+        PenumbraIPC.AddTemporaryModAll(LocalPlayerModName, modDict);
     }
 
     public void Dispose() {
@@ -217,20 +207,20 @@ public sealed unsafe class PortraitPlogon : IDalamudPlugin {
         //AddonLifecycle.UnregisterListener(AddonEvent.PostSetup, "CharaCard");
         AddonLifecycle.UnregisterListener(AddonEvent.PreDraw, "CharaCard");
         Framework.Update -= on_framework_update;
-        clientState.Login -= on_login;
-        clientState.Logout -= on_logout;
+        ClientState.Login -= on_login;
+        ClientState.Logout -= on_logout;
         PluginInterface.UiBuilder.Draw -= DrawUI;
         PluginInterface.UiBuilder.OpenConfigUi -= ToggleConfigUI;
 
-        WindowSystem.RemoveAllWindows();
+        _windowSystem.RemoveAllWindows();
 
         ConfigWindow.Dispose();
 
         CommandManager.RemoveHandler(ConfigCommandName);
 
         // Unload our mod(s) from penumbra
-        // we don't edit normal game paths so this isn't *technically* needed but its the right thing to do
-        if (PenumbraIPC.CheckAvailablity())
+        // we don't edit normal game paths so this isn't *technically* needed, but it's the right thing to do
+        if (PenumbraIPC.CheckAvailability())
             PenumbraIPC.RemoveTemporaryModAll(LocalPlayerModName);
         // if penumbra isn't loaded our mod won't be either so no biggie lol
     }

@@ -1,4 +1,3 @@
-using Dalamud.Game;
 using Dalamud.Game.ClientState.Party;
 using System.Text.Json.Serialization;
 using System.Collections.Generic;
@@ -35,7 +34,7 @@ public class PartyMember {
     public string Name { get; set; }
     public string Hash { get; set; }
     [JsonIgnore]
-    public string? Image_path { get; set; }
+    public string? ImagePath { get; set; }
     [JsonIgnore]
     public RowRef<World> World { get; }
     [JsonIgnore]
@@ -44,17 +43,17 @@ public class PartyMember {
     public uint ClassJobId { get; set; }
 }
 
-public class JsonData(List<PartyMember> list, string key, string own_hash)
+public class JsonData(List<PartyMember> list, string key, string ownHash)
 {
-    public string API_key { get; } = key;
-    public string Self { get; } = own_hash;
+    public string APIKey { get; } = key;
+    public string Self { get; } = ownHash;
     public List<PartyMember> PartyMembers { get; set; } = list;
 }
 
-public class PlayerInfo(string name, uint world_id, string job)
+public class PlayerInfo(string name, uint worldId, string job)
 {
     public string Name = name;
-    public uint WorldId = world_id;
+    public uint WorldId = worldId;
     public string Job = job;
 }
 
