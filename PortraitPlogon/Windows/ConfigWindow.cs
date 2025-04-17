@@ -22,47 +22,69 @@ public class ConfigWindow : Window, IDisposable {
     private string _errorMessage = "";
     private static readonly Vector4 ErrorColour = new(255, 0, 0, 255);  // Red, Green, Blue, Alpha
     private readonly PortraitPlogon _portraitPlogon;
-    private string _selected = "";
-    private IClientState _clientState;
-    private INotificationManager _notificationManager;
+    private string _selectedJob = "";
+    private readonly IClientState _clientState;
+    private readonly INotificationManager _notificationManager;
 
-    private readonly List<string> _jobs = [
-        "Adventure Plate",
+    // private bool _tanksSelected      = true;
+    // private bool _healersSelected    = true;
+    // private bool _meleeSelected      = true;
+    // private bool _physRangedSelected = true;
+    // private bool _castersSelected    = true;
+    // private bool _classesSelected    = true;
+    // private bool _craftersSelected   = true;
+    
+    private readonly List<string> _tanks = [
         // tanks
-        "Gladiator",
         "Paladin",
-        "Marauder",
         "Warrior",
         "Dark Knight",
-        "Gunbreaker",
+        "Gunbreaker"
+    ];
+    private readonly List<string> _healers = [
         // healers
-        "Conjurer",
         "White Mage",
         "Scholar",
         "Astrologian",
         "Sage",
+    ];
+    private readonly List<string> _melees = [
         // melee
-        "Pugilist",
-        "Lancer",
+        "Monk",
         "Dragoon",
-        "Rogue",
         "Ninja",
         "Samurai",
         "Reaper",
         "Viper",
+    ];
+    private readonly List<string> _physRanged = [
         // phys ranged
-        "Archer",
         "Bard",
         "Machinist",
         "Dancer",
-        // caster
-        "Thaumaturge",
-        "Arcanist",
+    ];
+    private readonly List<string> _casters = [
+        // casters
+        "Black Mage",
         "Summoner",
         "Red Mage",
         "Pictomancer",
         "Blue Mage",
-        // crafter
+    ];
+    private readonly List<string> _classes = [
+        // classes
+        "Gladiator",
+        "Marauder",
+        "Conjurer",
+        "Pugilist",
+        "Lancer",
+        "Rogue",
+        "Archer",
+        "Thaumaturge",
+        "Arcanist",
+    ];
+    private readonly List<string> _crafters = [
+        // crafters
         "Carpenter",
         "Blacksmith",
         "Armorer",
@@ -71,7 +93,7 @@ public class ConfigWindow : Window, IDisposable {
         "Weaver",
         "Alchemist",
         "Culinarian",
-        // gatherer
+        // gatherers
         "Miner",
         "Botanist",
         "Fisher"
@@ -108,7 +130,22 @@ public class ConfigWindow : Window, IDisposable {
 
         base.Toggle();
         if (IsOpen){
-            _selected = _clientState.LocalPlayer.ClassJob.Value.NameEnglish.ToString();
+            _selectedJob = _clientState.LocalPlayer.ClassJob.Value.NameEnglish.ToString();
+        }
+    }
+
+    private void JobSelector(string job, bool selected) {
+        if (ImGui.Selectable(job, selected)) {
+            _selectedJob = job;
+        }
+    }
+
+    private void CategoryCollapse(string category, List<string> jobList) {
+        if (!ImGui.CollapsingHeader(category))
+            return;
+        foreach (var job in jobList) {
+            var jobSelected = _selectedJob == job;
+            JobSelector(job, jobSelected);
         }
     }
 
@@ -125,11 +162,15 @@ public class ConfigWindow : Window, IDisposable {
         // https://github.com/ocornut/imgui/blob/master/imgui_demo.cpp#L8815
         // Left pane
         ImGui.BeginChild("left pane", new Vector2(150, 0), true, ImGuiWindowFlags.None);
-            foreach (var job in _jobs) {
-                if (ImGui.Selectable(job, _selected == job))
-                    _selected = job;
-            }
-        ImGui.EndChild();
+            JobSelector("Adventure Plate", _selectedJob == "Adventure Plate");
+            CategoryCollapse("Tanks",       _tanks);
+            CategoryCollapse("Healers",     _healers);
+            CategoryCollapse("Melee",       _melees);
+            CategoryCollapse("Phys Ranged", _physRanged);
+            CategoryCollapse("Casters",     _casters);
+            CategoryCollapse("Classes",     _classes);
+            CategoryCollapse("Crafters",    _crafters);
+            ImGui.EndChild();
         ImGui.SameLine();
 
         // Right pane
@@ -140,10 +181,10 @@ public class ConfigWindow : Window, IDisposable {
             /*border*/ false,
             /*flags*/  ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse
         );
-            if (_selected.IsNullOrEmpty()){
+            if (_selectedJob.IsNullOrEmpty()){
                 return;
             }
-            ImGui.Text(_selected);
+            ImGui.Text(_selectedJob);
             if (!_errorMessage.IsNullOrEmpty()){
                 ImGui.TextColored(ErrorColour, _errorMessage);
             }
@@ -151,23 +192,23 @@ public class ConfigWindow : Window, IDisposable {
             if (ImGui.Button("Select Image")) {
                 _fileDialogManager.OpenFileDialog("Select an image.", ".png", (success, file) => {
                     if (success) {
-                        handle_file(file, _selected.ToLower());
+                        handle_file(file, _selectedJob.ToLower());
                     }
                 });
             }
 
             // is an image currently set?
-            if (_configuration.Portraits[_portraitPlogon.OwnCID ?? 0].ContainsKey(_selected.ToLower())) {
+            if (_configuration.Portraits[_portraitPlogon.OwnCID ?? 0].ContainsKey(_selectedJob.ToLower())) {
                 ImGui.SameLine();
                 if (ImGui.Button("Unset Image")) {
                     // unset image
-                    _configuration.Portraits[_portraitPlogon.OwnCID ?? 0].Remove(_selected.ToLower());
+                    _configuration.Portraits[_portraitPlogon.OwnCID ?? 0].Remove(_selectedJob.ToLower());
                     _portraitPlogon.ReconstructTemporaryMod();
                     _configuration.Save();
                     return;
                 }
                 // load the image
-                var path = _configuration.Portraits[_portraitPlogon.OwnCID ?? 0][_selected.ToLower()]+".png";
+                var path = _configuration.Portraits[_portraitPlogon.OwnCID ?? 0][_selectedJob.ToLower()]+".png";
                 var image = PortraitPlogon.TextureProvider.GetFromFile(path).GetWrapOrDefault();
                 if (image != null)
                     // show the image
@@ -192,7 +233,6 @@ public class ConfigWindow : Window, IDisposable {
         _errorMessage = "";
 
         // copy file to our folder
-        Directory.CreateDirectory($@"{_folderPath}\{_portraitPlogon.OwnWorld}\{_portraitPlogon.OwnName}\{job}");
         var path = $@"{_folderPath}\{_portraitPlogon.OwnWorld}\{_portraitPlogon.OwnName}\{job}";
         File.Copy(file, path+".png", true);
         _configuration.Portraits[_portraitPlogon.OwnCID ?? 0][job] = path;
