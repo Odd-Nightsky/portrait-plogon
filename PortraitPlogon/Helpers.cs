@@ -102,8 +102,8 @@ public unsafe class Helpers {
     /// <summary>
     /// is a custom portrait set for player with job
     /// </summary>
-    public bool CustomPortraitExists(Configuration configuration, string hash, string playerJob) {
-        return !configuration.Portraits[hash].GetValueOrDefault(playerJob, "").IsNullOrEmpty();
+    public bool CustomPortraitExists(Configuration configuration, ulong cid, string playerJob) {
+        return !configuration.Portraits[cid].GetValueOrDefault(playerJob, "").IsNullOrEmpty();
     }
 
     /// <summary>

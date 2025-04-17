@@ -10,6 +10,8 @@ using PortraitPlogon.Windows;
 using Dalamud.Game.Command;
 using Dalamud.Interface.Windowing;
 using Dalamud.Utility;
+using FFXIVClientStructs.FFXIV.Client.Game.Character;
+using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 
 namespace PortraitPlogon;
 
@@ -41,6 +43,7 @@ public sealed unsafe class PortraitPlogon : IDalamudPlugin {
     public string? OwnName;
     public string? OwnWorld;
     public string? OwnHash;
+    public ulong? OwnCID;
     private bool _pluginLoaded;
     private readonly Helpers _helpers;
     
@@ -50,11 +53,14 @@ public sealed unsafe class PortraitPlogon : IDalamudPlugin {
         FolderPath = PluginInterface.GetPluginConfigDirectory();
         Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
         ConfigWindow = new ConfigWindow(this);
+
+        Configuration = Configuration.Load(PluginInterface.ConfigFile.FullName);
+        
         _windowSystem.AddWindow(ConfigWindow);
         CommandManager.AddHandler(ConfigCommandName, new CommandInfo(ToggleConfigCommand) {
             HelpMessage = "Open PortraitPlogon configuration window"
         });
-
+        
         _helpers = new Helpers(Data);
 
         // addon life cycle stuffs
@@ -89,13 +95,14 @@ public sealed unsafe class PortraitPlogon : IDalamudPlugin {
         _pluginLoaded = true;
         OwnName = ClientState.LocalPlayer?.Name.ToString();
         OwnWorld = ClientState.LocalPlayer?.HomeWorld.Value.Name.ToString() ?? "Unknown";
+        OwnCID = ((Character*)ClientState.LocalPlayer?.Address)->ContentId;
         _partyListLength = -1; // forces a re-run of the party list checking
         // TODO: actually hash
         OwnHash = OwnName + ClientState.LocalPlayer?.HomeWorld.RowId ?? "Place HolderUnknown";
 
         // if this character doesn't exist in the configuration dictionary yet
-        if (!Configuration.Portraits.ContainsKey(OwnHash))
-            Configuration.Portraits[OwnHash] = [];
+        if (!Configuration.Portraits.ContainsKey(OwnCID ?? 0))
+            Configuration.Portraits[OwnCID ?? 0] = [];
         
         // Load the current setup into penumbra
         if (PenumbraIPC.CheckAvailability())
@@ -107,6 +114,7 @@ public sealed unsafe class PortraitPlogon : IDalamudPlugin {
         OwnName = null;
         OwnWorld = null;
         OwnHash = null;
+        OwnCID = null;
     }
 
     private void on_framework_update(IFramework framework) {
@@ -132,8 +140,8 @@ public sealed unsafe class PortraitPlogon : IDalamudPlugin {
                 _partyList.Add(new PartyMember(ClientState.LocalPlayer));
         }
         foreach (var member in _partyList) {
-            if (member.Name == OwnName && _helpers.CustomPortraitExists(Configuration, OwnHash ?? "Unknown", member.ClassJob.Value.Name.ToString())) {
-                member.ImagePath = Configuration.Portraits[OwnHash ?? "Unknown"][member.ClassJob.Value.Name.ToString()];
+            if (member.Name == OwnName && _helpers.CustomPortraitExists(Configuration, OwnCID ?? 0, member.ClassJob.Value.Name.ToString())) {
+                member.ImagePath = Configuration.Portraits[OwnCID ?? 0][member.ClassJob.Value.Name.ToString()];
             }
             PluginLog.Debug(member.Name);
         }
@@ -144,21 +152,25 @@ public sealed unsafe class PortraitPlogon : IDalamudPlugin {
     }
 
     private void AdventurePlatePreDraw(AddonEvent type, AddonArgs args) {
-        // WHY DO I NEED TO RUN THIS EVERY FRAME AAAAA
+        var charaCardStruct = (AgentCharaCard.Storage*)args.Addon;
+        var cid = charaCardStruct->ContentId;
+
         // /xldata -> Addon Inspector -> Depth Layer 5 -> CharaCard
         var charaCard = (AtkUnitBase*)args.Addon;
-        var hash = _helpers.GetHashFromPlate(charaCard);
-
+        var hash = _helpers.GetHashFromPlate(charaCard);  // TODO: do we still need this?
+        
+        // are we looking at our own plate?
+        if (cid != OwnCID)
+            return;
+        // is an image set
+        if (Configuration.Portraits[OwnCID ?? 0].GetValueOrDefault("adventure plate", "").IsNullOrEmpty())
+            return;
+        
         // setting image
         // node IDs: 1 > 19 > 2
-        // are we looking at our own plate?
-        if (hash != OwnHash)
-            return;
-        if (Configuration.Portraits[OwnHash ?? "Unknown"].GetValueOrDefault("adventure plate", "").IsNullOrEmpty())
-            return;
         var portraitNode = (AtkComponentNode*)charaCard->GetNodeById(19);
         var portrait = (AtkImageNode*)portraitNode->Component->UldManager.SearchNodeById(2);
-        portrait->LoadTexture($"tmp/portrait_plogon/{OwnHash}/adventure plate.tex");
+        portrait->LoadTexture($"tmp/portrait_plogon/{OwnCID}/adventure plate.tex");
     }
 
     /// <summary>
@@ -173,19 +185,18 @@ public sealed unsafe class PortraitPlogon : IDalamudPlugin {
             foreach (var member in _partyList) {
                 if (member.ImagePath.IsNullOrEmpty())
                     continue;
-                if (playerJob == member.ClassJob.Value.Name && // job check
-                    worldId == member.World.RowId           && // world check
-                    _helpers.CompareNames(name, member.Name)     // name check
-                ) {
-                    PluginLog.Debug($"Users match: {name} & {member.Name}\n"+
-                                    $"class: {playerJob} & {member.ClassJob.Value.Name}"
-                    );
-                    // paths should look like `tmp/portrait_plogon/[hash]/[job].tex`
-                    var hash = name + _helpers.GetWorldIDByPlayerID(i, banner);
-                    var path = $"tmp/portrait_plogon/{hash}/{playerJob}.tex";
-                    PluginLog.Debug($"Attempting portrait overwrite with path: {path}");
-                    _helpers.GetImageNodeByPlayerID(i, banner)->LoadTexture(path);
-                }
+                if (playerJob != member.ClassJob.Value.Name || // job check
+                    worldId != member.World.RowId           || // world check
+                    !_helpers.CompareNames(name, member.Name)) // name check
+                    continue;
+                PluginLog.Debug($"Users match: {name} & {member.Name}\n"+
+                                $"class: {playerJob} & {member.ClassJob.Value.Name}"
+                );
+                // paths should look like `tmp/portrait_plogon/[hash]/[job].tex`
+                var hash = name + _helpers.GetWorldIDByPlayerID(i, banner);
+                var path = $"tmp/portrait_plogon/{hash}/{playerJob}.tex";
+                PluginLog.Debug($"Attempting portrait overwrite with path: {path}");
+                _helpers.GetImageNodeByPlayerID(i, banner)->LoadTexture(path);
             }
         }
     }
@@ -194,11 +205,10 @@ public sealed unsafe class PortraitPlogon : IDalamudPlugin {
         // reconstruct temporary mod & ask penumbra to load it
         var modDict = new Dictionary<string, string>();
         // portrait has type "KeyValuePair<string, string>"
-        foreach (var portrait in Configuration.Portraits[OwnHash ?? "Unknown"]) {
+        foreach (var portrait in Configuration.Portraits[OwnCID ?? 0]) {
             modDict.Add($"tmp/portrait_plogon/{OwnHash}/{portrait.Key}.tex", portrait.Value+".tex");
-            // PortraitPlogon.PluginLog.PluginLog.Debug($"tmp/portrait_plogon/{own_hash}/{portrait.Key}.tex");
         }
-        // PenumbraIPC.RemoveTemporaryModAll(LocalPlayerModName);  // TODO:is this needed?
+        // PenumbraIPC.RemoveTemporaryModAll(LocalPlayerModName);  // TODO: is this needed?
         PenumbraIPC.AddTemporaryModAll(LocalPlayerModName, modDict);
     }
 
