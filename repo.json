@@ -3,7 +3,7 @@
     "Author": "oddnightsky",
     "Name": "Portrait Plogon",
     "InternalName": "portraitPlogon",
-    "AssemblyVersion": "0.1.4",
+    "AssemblyVersion": "0.2.0",
     "Description": "Replaces (some) portrait elements with custom PNGs of your choice.\nAs of yet no syncing system exists",
     "ApplicableVersion": "any",
     "RepoUrl": "https://raw.githubusercontent.com/Odd-Nightsky/portrait-repo/refs/heads/main/repo.json",
@@ -16,7 +16,7 @@
     "Punchline": "Arbitrary PNGs as portraits :D",
     "IsHide": "False",
     "IsTestingExclusive": "False",
-    "DownloadLinkInstall": "https://github.com/Odd-Nightsky/portrait-plogon/releases/download/0.1.4/portrait-plogon.zip",
-    "DownloadLinkUpdate": "https://github.com/Odd-Nightsky/portrait-plogon/releases/download/0.1.4/portrait-plogon.zip"
+    "DownloadLinkInstall": "https://github.com/Odd-Nightsky/portrait-plogon/releases/download/0.2.0/portrait-plogon.zip",
+    "DownloadLinkUpdate": "https://github.com/Odd-Nightsky/portrait-plogon/releases/download/0.2.0/portrait-plogon.zip"
   }
 ]
