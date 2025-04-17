@@ -28,6 +28,7 @@ public sealed unsafe class PortraitPlogon : IDalamudPlugin {
     [PluginService] internal static IClientState ClientState { get; private set; } = null!;
     [PluginService] internal static ITextureProvider TextureProvider { get; private set; } = null!;
     [PluginService] internal static IDataManager Data { get; private set; } = null!;
+    [PluginService] internal static INotificationManager NotificationManager { get; private set; } = null!;
     // ReSharper restore MemberCanBePrivate.Global
     
     public Configuration Configuration { get; init; }
@@ -51,11 +52,10 @@ public sealed unsafe class PortraitPlogon : IDalamudPlugin {
     public PortraitPlogon(IDalamudPluginInterface pluginInterface) {
         // TODO: clean this up
         FolderPath = PluginInterface.GetPluginConfigDirectory();
-        Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
-        ConfigWindow = new ConfigWindow(this);
 
         Configuration = Configuration.Load(PluginInterface.ConfigFile.FullName);
         
+        ConfigWindow = new ConfigWindow(this, ClientState, NotificationManager);
         _windowSystem.AddWindow(ConfigWindow);
         CommandManager.AddHandler(ConfigCommandName, new CommandInfo(ToggleConfigCommand) {
             HelpMessage = "Open PortraitPlogon configuration window"

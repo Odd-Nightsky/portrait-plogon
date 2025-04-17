@@ -6,6 +6,8 @@ using Dalamud.Interface.ImGuiFileDialog;
 using ImGuiNET;
 using Dalamud.Utility;
 using System.IO;
+using Dalamud.Interface.ImGuiNotification;
+using Dalamud.Plugin.Services;
 
 namespace PortraitPlogon.Windows;
 
@@ -20,6 +22,8 @@ public class ConfigWindow : Window, IDisposable {
     private static readonly Vector4 ErrorColour = new(255, 0, 0, 255);  // Red, Green, Blue, Alpha
     private readonly PortraitPlogon _portraitPlogon;
     private string _selected = "";
+    private IClientState _clientState;
+    private INotificationManager _notificationManager;
     private readonly List<string> _jobs = [
         "Adventure Plate",
         // tanks
@@ -71,12 +75,14 @@ public class ConfigWindow : Window, IDisposable {
         "Fisher"
     ];
 
-    public ConfigWindow(PortraitPlogon portraitPlogon) : base("Portrait Plogon###PortraitPlogonCfg") {
+    public ConfigWindow(PortraitPlogon portraitPlogon, IClientState clientState, INotificationManager notificationManager) : base("Portrait Plogon###PortraitPlogonCfg") {
         Flags = ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse | ImGuiWindowFlags.NoResize;
         _portraitPlogon = portraitPlogon;
         _configuration = portraitPlogon.Configuration;
         _folderPath = portraitPlogon.FolderPath;
         _fileDialogManager = new FileDialogManager();
+        _clientState = clientState;
+        _notificationManager = notificationManager;
 
         Size = new Vector2(360, 420);
         SizeCondition = ImGuiCond.Always;
@@ -86,6 +92,22 @@ public class ConfigWindow : Window, IDisposable {
         var ver = Assembly.GetExecutingAssembly().GetName().Version!;
         WindowName = $"Portrait Plogon ver: {ver.Major}.{ver.Minor}.{ver.Build}";
 # endif
+    }
+
+    public new void Toggle() {
+        if (_clientState.LocalPlayer == null) {
+            _notificationManager.AddNotification(new Notification {
+                Title = "Unable to open portrait configuration",
+                Content = "Please login before you open the settings",
+                Type = NotificationType.Error
+            });
+            return;
+        }
+
+        base.Toggle();
+        if (IsOpen){
+            _selected = _clientState.LocalPlayer.ClassJob.Value.NameEnglish.ToString();
+        }
     }
 
     public override void Draw() {
@@ -133,17 +155,17 @@ public class ConfigWindow : Window, IDisposable {
             }
 
             // is an image currently set?
-            if (_configuration.Portraits[_portraitPlogon.OwnHash ?? "Unknown"].ContainsKey(_selected.ToLower())) {
+            if (_configuration.Portraits[_portraitPlogon.OwnCID ?? 0].ContainsKey(_selected.ToLower())) {
                 ImGui.SameLine();
                 if (ImGui.Button("Unset Image")) {
                     // unset image
-                    _configuration.Portraits[_portraitPlogon.OwnHash ?? "Unknown"].Remove(_selected.ToLower());
+                    _configuration.Portraits[_portraitPlogon.OwnCID ?? 0].Remove(_selected.ToLower());
                     _portraitPlogon.ReconstructTemporaryMod();
                     _configuration.Save();
                     return;
                 }
                 // load the image
-                var path = _configuration.Portraits[_portraitPlogon.OwnHash ?? "Unknown"][_selected.ToLower()]+".png";
+                var path = _configuration.Portraits[_portraitPlogon.OwnCID ?? 0][_selected.ToLower()]+".png";
                 var image = PortraitPlogon.TextureProvider.GetFromFile(path).GetWrapOrDefault();
                 if (image != null)
                     // show the image
@@ -171,7 +193,7 @@ public class ConfigWindow : Window, IDisposable {
         Directory.CreateDirectory($@"{_folderPath}\{_portraitPlogon.OwnWorld}\{_portraitPlogon.OwnName}\{job}");
         var path = $@"{_folderPath}\{_portraitPlogon.OwnWorld}\{_portraitPlogon.OwnName}\{job}";
         File.Copy(file, path+".png", true);
-        _configuration.Portraits[_portraitPlogon.OwnHash ?? "Unknown"][job] = path;
+        _configuration.Portraits[_portraitPlogon.OwnCID ?? 0][job] = path;
         _configuration.Save();
 
         // convert to tex
