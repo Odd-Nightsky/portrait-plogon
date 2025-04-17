@@ -6,6 +6,7 @@ using Dalamud.Interface.ImGuiFileDialog;
 using ImGuiNET;
 using Dalamud.Utility;
 using System.IO;
+using System.Reflection;
 using Dalamud.Interface.ImGuiNotification;
 using Dalamud.Plugin.Services;
 
@@ -24,6 +25,7 @@ public class ConfigWindow : Window, IDisposable {
     private string _selected = "";
     private IClientState _clientState;
     private INotificationManager _notificationManager;
+
     private readonly List<string> _jobs = [
         "Adventure Plate",
         // tanks
@@ -86,10 +88,10 @@ public class ConfigWindow : Window, IDisposable {
 
         Size = new Vector2(360, 420);
         SizeCondition = ImGuiCond.Always;
+        var ver = Assembly.GetExecutingAssembly().GetName().Version!;
 # if DEBUG
         WindowName = "Portrait Plogon DEBUG BUILD";
 # else
-        var ver = Assembly.GetExecutingAssembly().GetName().Version!;
         WindowName = $"Portrait Plogon ver: {ver.Major}.{ver.Minor}.{ver.Build}";
 # endif
     }
