@@ -6,7 +6,7 @@
     "AssemblyVersion": "0.2.0",
     "Description": "Replaces (some) portrait elements with custom PNGs of your choice.\nAs of yet no syncing system exists",
     "ApplicableVersion": "any",
-    "RepoUrl": "https://raw.githubusercontent.com/Odd-Nightsky/portrait-repo/refs/heads/main/repo.json",
+    "RepoUrl": "https://github.com/Odd-Nightsky/portrait-plogon",
     "Tags": [
       "portrait"
     ],
