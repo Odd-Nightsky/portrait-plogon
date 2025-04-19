@@ -20,19 +20,19 @@ public class ConfigWindow : Window, IDisposable {
     private readonly string _folderPath;
     private readonly FileDialogManager _fileDialogManager;
     private string _errorMessage = "";
-    private static readonly Vector4 ErrorColour = new(255, 0, 0, 255);  // Red, Green, Blue, Alpha
+    private readonly Vector4 _errorColour = new(255, 0, 0, 255);  // Red, Green, Blue, Alpha
     private readonly PortraitPlogon _portraitPlogon;
     private string _selectedJob = "";
     private readonly IClientState _clientState;
     private readonly INotificationManager _notificationManager;
 
-    // private bool _tanksSelected      = true;
-    // private bool _healersSelected    = true;
-    // private bool _meleeSelected      = true;
-    // private bool _physRangedSelected = true;
-    // private bool _castersSelected    = true;
-    // private bool _classesSelected    = true;
-    // private bool _craftersSelected   = true;
+    private bool _tanksSelected;
+    private bool _healersSelected;
+    private bool _meleeSelected;
+    private bool _physRangedSelected;
+    private bool _castersSelected;
+    private bool _classesSelected;
+    private bool _craftersSelected;
     
     private readonly List<string> _tanks = [
         // tanks
@@ -129,9 +129,24 @@ public class ConfigWindow : Window, IDisposable {
         }
 
         base.Toggle();
-        if (IsOpen){
-            _selectedJob = _clientState.LocalPlayer.ClassJob.Value.NameEnglish.ToString();
-        }
+        if (!IsOpen)
+            return;
+        _selectedJob = _clientState.LocalPlayer.ClassJob.Value.NameEnglish.ToString();
+            
+        if (_tanks.Contains(_selectedJob))
+            _tanksSelected = true;
+        if (_healers.Contains(_selectedJob))
+            _healersSelected = true;
+        if (_melees.Contains(_selectedJob))
+            _meleeSelected = true;
+        if (_physRanged.Contains(_selectedJob))
+            _physRangedSelected = true;
+        if (_casters.Contains(_selectedJob))
+            _castersSelected = true;
+        if (_classes.Contains(_selectedJob))
+            _classesSelected = true;
+        if (_crafters.Contains(_selectedJob))
+            _craftersSelected = true;
     }
 
     private void JobSelector(string job, bool selected) {
@@ -140,9 +155,13 @@ public class ConfigWindow : Window, IDisposable {
         }
     }
 
-    private void CategoryCollapse(string category, List<string> jobList) {
-        if (!ImGui.CollapsingHeader(category))
+    private void CategoryCollapse(string category, List<string> jobList, ref bool open) {
+        ImGui.SetNextItemOpen(open);
+        if (!ImGui.CollapsingHeader($"{category}###Portrait{category}")) {
+            open = false;
             return;
+        }
+        open = true;
         foreach (var job in jobList) {
             var jobSelected = _selectedJob == job;
             JobSelector(job, jobSelected);
@@ -151,7 +170,7 @@ public class ConfigWindow : Window, IDisposable {
 
     public override void Draw() {
         if (!PenumbraIPC.CheckAvailability()) {
-            ImGui.TextColored(ErrorColour, "Penumbra not available or wrong version.");
+            ImGui.TextColored(_errorColour, "Penumbra not available or wrong version.");
             return;
         }
 
@@ -163,20 +182,20 @@ public class ConfigWindow : Window, IDisposable {
         // Left pane
         ImGui.BeginChild("left pane", new Vector2(150, 0), true, ImGuiWindowFlags.None);
             JobSelector("Adventure Plate", _selectedJob == "Adventure Plate");
-            CategoryCollapse("Tanks",       _tanks);
-            CategoryCollapse("Healers",     _healers);
-            CategoryCollapse("Melee",       _melees);
-            CategoryCollapse("Phys Ranged", _physRanged);
-            CategoryCollapse("Casters",     _casters);
-            CategoryCollapse("Classes",     _classes);
-            CategoryCollapse("Crafters",    _crafters);
-            ImGui.EndChild();
+            CategoryCollapse("Tanks",       _tanks,      ref _tanksSelected);
+            CategoryCollapse("Healers",     _healers,    ref _healersSelected);
+            CategoryCollapse("Melee",       _melees,     ref _meleeSelected);
+            CategoryCollapse("Phys Ranged", _physRanged, ref _physRangedSelected);
+            CategoryCollapse("Casters",     _casters,    ref _castersSelected);
+            CategoryCollapse("Classes",     _classes,    ref _classesSelected);
+            CategoryCollapse("Crafters",    _crafters,   ref _craftersSelected);
+        ImGui.EndChild();
         ImGui.SameLine();
 
         // Right pane
         ImGui.BeginGroup();
         ImGui.BeginChild(
-            /*label*/  "item view",
+            /*label*/  "right pane",
             /*size*/   new Vector2(0, -ImGui.GetFrameHeight()),
             /*border*/ false,
             /*flags*/  ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse
@@ -186,7 +205,7 @@ public class ConfigWindow : Window, IDisposable {
             }
             ImGui.Text(_selectedJob);
             if (!_errorMessage.IsNullOrEmpty()){
-                ImGui.TextColored(ErrorColour, _errorMessage);
+                ImGui.TextColored(_errorColour, _errorMessage);
             }
             ImGui.Separator();
             if (ImGui.Button("Select Image")) {
@@ -214,7 +233,7 @@ public class ConfigWindow : Window, IDisposable {
                     // show the image
                     ImGui.Image(image.ImGuiHandle, new Vector2(185, 304));
                 else
-                    ImGui.TextColored(ErrorColour, "Failure to load image.");
+                    ImGui.TextColored(_errorColour, "Failure to load image.");
             }
         ImGui.EndChild();
     }
