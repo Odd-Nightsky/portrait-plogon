@@ -153,15 +153,24 @@ public sealed unsafe class PortraitPlogon : IDalamudPlugin {
 
     private void AdventurePlatePreDraw(AddonEvent type, AddonArgs args) {
         var charaCardStruct = (AgentCharaCard.Storage*)args.Addon;
-        var cid = charaCardStruct->ContentId;
 
         // /xldata -> Addon Inspector -> Depth Layer 5 -> CharaCard
         var charaCard = (AtkUnitBase*)args.Addon;
-        var hash = _helpers.GetHashFromPlate(charaCard);  // TODO: do we still need this?
-        
+        var hash = _helpers.GetHashFromPlate(charaCard);
+
         // are we looking at our own plate?
-        if (cid != OwnCID)
+        if (hash != OwnHash) {
             return;
+        }
+        // CID based check seem to be broken. this was working. but I guess I'm getting the wrong CID somewhere?
+        // if fixed this would be more reliable than the above
+        // TODO: fix CharaCard CID check
+        //var cid = charaCardStruct->ContentId;
+        // if (cid != OwnCID) {
+        //     PluginLog.Debug($"Not our plate. {cid} ≠ {OwnCID}");
+        //     return;
+        // }
+        
         // is an image set
         if (Configuration.Portraits[OwnCID ?? 0].GetValueOrDefault("adventure plate", "").IsNullOrEmpty())
             return;
@@ -170,7 +179,7 @@ public sealed unsafe class PortraitPlogon : IDalamudPlugin {
         // node IDs: 1 > 19 > 2
         var portraitNode = (AtkComponentNode*)charaCard->GetNodeById(19);
         var portrait = (AtkImageNode*)portraitNode->Component->UldManager.SearchNodeById(2);
-        portrait->LoadTexture($"tmp/portrait_plogon/{OwnCID}/adventure plate.tex");
+        portrait->LoadTexture($"tmp/portrait_plogon/{OwnHash}/adventure plate.tex");
     }
 
     /// <summary>
@@ -235,5 +244,3 @@ public sealed unsafe class PortraitPlogon : IDalamudPlugin {
         // if penumbra isn't loaded our mod won't be either so no biggie lol
     }
 }
-
-
