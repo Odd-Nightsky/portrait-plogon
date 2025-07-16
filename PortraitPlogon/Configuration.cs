@@ -21,12 +21,24 @@ public class Configuration : IPluginConfiguration {
 
     public static Configuration Load(string configPath) {
         Migrate(configPath);
-        return JsonConvert.DeserializeObject<Configuration>(File.ReadAllText(configPath)) ?? new Configuration();
+        try {
+            return JsonConvert.DeserializeObject<Configuration>(File.ReadAllText(configPath)) ?? new Configuration();
+        }
+        catch (FileNotFoundException) {
+            return new Configuration();
+        }
     }
     
     // should prob be made cleaner
     private static void Migrate(string configFilePath) {
-        var text = File.ReadAllText(configFilePath);
+        string text;
+        try {
+            text = File.ReadAllText(configFilePath);
+        }
+        catch (FileNotFoundException) {
+            // expected on first load
+            return;
+        }
         var config = JsonConvert.DeserializeObject(text, typeof(ConfigurationMinimal)) as ConfigurationMinimal;
         if (config == null)
             return;

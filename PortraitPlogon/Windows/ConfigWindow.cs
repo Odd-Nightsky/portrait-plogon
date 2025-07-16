@@ -25,6 +25,7 @@ public class ConfigWindow : Window, IDisposable {
     private string _selectedJob = "";
     private readonly IClientState _clientState;
     private readonly INotificationManager _notificationManager;
+    private bool _fileDialogOpen;
 
     private bool _tanksSelected;
     private bool _healersSelected;
@@ -110,10 +111,14 @@ public class ConfigWindow : Window, IDisposable {
 
         Size = new Vector2(360, 420);
         SizeCondition = ImGuiCond.Always;
+        // disabling for one line only because it's too stupid to SEE THE LINE RIGHT THERE THAT USES IT
+        // ReSharper disable UnusedVariable
         var ver = Assembly.GetExecutingAssembly().GetName().Version!;
+        // ReSharper restore UnusedVariable
 # if DEBUG
         WindowName = "Portrait Plogon DEBUG BUILD";
 # else
+        // "unused variable" my ass
         WindowName = $"Portrait Plogon ver: {ver.Major}.{ver.Minor}.{ver.Build}";
 # endif
     }
@@ -132,7 +137,7 @@ public class ConfigWindow : Window, IDisposable {
         if (!IsOpen)
             return;
         _selectedJob = _clientState.LocalPlayer.ClassJob.Value.NameEnglish.ToString();
-            
+        
         if (_tanks.Contains(_selectedJob))
             _tanksSelected = true;
         if (_healers.Contains(_selectedJob))
@@ -209,11 +214,15 @@ public class ConfigWindow : Window, IDisposable {
             }
             ImGui.Separator();
             if (ImGui.Button("Select Image")) {
-                _fileDialogManager.OpenFileDialog("Select an image.", ".png", (success, file) => {
-                    if (success) {
-                        handle_file(file, _selectedJob.ToLower());
-                    }
-                });
+                if (!_fileDialogOpen) {
+                    _fileDialogOpen = true;
+                    _fileDialogManager.OpenFileDialog("Select an image.", ".png", (success, file) => {
+                        _fileDialogOpen = false;
+                        if (success) {
+                            handle_file(file, _selectedJob.ToLower());
+                        }
+                    });
+                }
             }
 
             // is an image currently set?
@@ -250,7 +259,15 @@ public class ConfigWindow : Window, IDisposable {
             return;
         }
         _errorMessage = "";
-
+        
+        // verify the folders exist & create them if not
+        if (!Directory.Exists($@"{_folderPath}\{_portraitPlogon.OwnWorld}")) {
+            Directory.CreateDirectory($@"{_folderPath}\{_portraitPlogon.OwnWorld}");
+        }
+        if (!Directory.Exists($@"{_folderPath}\{_portraitPlogon.OwnWorld}\{_portraitPlogon.OwnName}")) {
+            Directory.CreateDirectory($@"{_folderPath}\{_portraitPlogon.OwnWorld}\{_portraitPlogon.OwnName}\");
+        }
+        
         // copy file to our folder
         var path = $@"{_folderPath}\{_portraitPlogon.OwnWorld}\{_portraitPlogon.OwnName}\{job}";
         File.Copy(file, path+".png", true);
