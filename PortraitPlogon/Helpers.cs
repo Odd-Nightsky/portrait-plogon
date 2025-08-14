@@ -3,6 +3,7 @@ using FFXIVClientStructs.FFXIV.Component.GUI;
 using System.Collections.Generic;
 using Dalamud.Utility;
 using System.Linq;
+using Dalamud.Game.NativeWrapper;
 using Lumina.Excel.Sheets;
 
 namespace PortraitPlogon;  // prob a bad name but :3

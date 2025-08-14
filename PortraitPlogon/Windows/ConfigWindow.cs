@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Numerics;
 using Dalamud.Interface.Windowing;
 using Dalamud.Interface.ImGuiFileDialog;
-using ImGuiNET;
+using Dalamud.Bindings.ImGui;
 using Dalamud.Utility;
 using System.IO;
 using System.Reflection;
@@ -240,7 +240,7 @@ public class ConfigWindow : Window, IDisposable {
                 var image = PortraitPlogon.TextureProvider.GetFromFile(path).GetWrapOrDefault();
                 if (image != null)
                     // show the image
-                    ImGui.Image(image.ImGuiHandle, new Vector2(185, 304));
+                    ImGui.Image(image.Handle, new Vector2(185, 304));
                 else
                     ImGui.TextColored(_errorColour, "Failure to load image.");
             }

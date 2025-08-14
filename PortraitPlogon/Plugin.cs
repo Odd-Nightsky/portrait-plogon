@@ -11,7 +11,6 @@ using Dalamud.Game.Command;
 using Dalamud.Interface.Windowing;
 using Dalamud.Utility;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
-using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 
 namespace PortraitPlogon;
 
@@ -98,7 +97,7 @@ public sealed unsafe class PortraitPlogon : IDalamudPlugin {
         OwnCID = ((Character*)ClientState.LocalPlayer?.Address)->ContentId;
         _partyListLength = -1; // forces a re-run of the party list checking
         // TODO: actually hash
-        OwnHash = OwnName + ClientState.LocalPlayer?.HomeWorld.RowId ?? "Place HolderUnknown";
+        OwnHash = OwnName + ClientState.LocalPlayer?.HomeWorld.RowId;
 
         // if this character doesn't exist in the configuration dictionary yet
         if (!Configuration.Portraits.ContainsKey(OwnCID ?? 0))
@@ -152,10 +151,8 @@ public sealed unsafe class PortraitPlogon : IDalamudPlugin {
     }
 
     private void AdventurePlatePreDraw(AddonEvent type, AddonArgs args) {
-        var charaCardStruct = (AgentCharaCard.Storage*)args.Addon;
-
         // /xldata -> Addon Inspector -> Depth Layer 5 -> CharaCard
-        var charaCard = (AtkUnitBase*)args.Addon;
+        var charaCard = (AtkUnitBase*)args.Addon.Address;
         var hash = _helpers.GetHashFromPlate(charaCard);
 
         // are we looking at our own plate?
@@ -186,7 +183,7 @@ public sealed unsafe class PortraitPlogon : IDalamudPlugin {
     /// Hooked to run before the party portrait interface is rendered
     /// </summary>
     private void PartyPortraitInterfacePostSetup(AddonEvent type, AddonArgs args) {
-        var banner = (AtkUnitBase*)args.Addon;
+        var banner = (AtkUnitBase*)args.Addon.Address;
         for (uint i = 1; i <= 8; i++) {
             var name = _helpers.GetNameByPlayerID(i, banner);
             var playerJob = _helpers.GetJobByPlayerID(i, banner);
